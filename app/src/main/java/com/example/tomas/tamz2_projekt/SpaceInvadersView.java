@@ -41,6 +41,10 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
     // Strela hrace, může byt jen jedna
     private Bullet playerBullet;
 
+    // #TODO podpora podle nastavení
+    Invader[] invaders = new Invader[30];
+    int numInvaders = 0;
+
     // Strela vetrelcu (nepředpokladame vice než 100 najednou)
     private Bullet[] invadersBullets = new Bullet[100];
 
@@ -69,6 +73,15 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
         // Střela vetrelcu
         for(int i = 0; i < invadersBullets.length; i++) {
             invadersBullets[i] = new Bullet(sizeY);
+        }
+
+        // Vetrelci
+        numInvaders = 0;
+        for(int column = 0; column < 6; column ++ ){
+            for(int row = 0; row < 5; row ++ ){
+                invaders[numInvaders] = new Invader(context, row, column, sizeX, sizeY);
+                numInvaders ++;
+            }
         }
     }
 
@@ -107,7 +120,14 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             //Log.d("posY", ""+sizeY);
             canvas.drawBitmap(playerShip.getShip(), playerShip.getX(), sizeY - 182, paint);
 
-            // Draw the players bullet if active
+            // Vykreslení vetřelců
+            for(int i = 0; i < numInvaders; i++){
+                if(!invaders[i].getDead()) {
+                    canvas.drawBitmap(invaders[i].getBitmap(i%3), invaders[i].getX(), invaders[i].getY(), paint);
+                }
+            }
+
+            // Vykreslení hráčovi střely
             if(playerBullet.getStatus()){
                 canvas.drawRect(playerBullet.getHitbox(), paint);
             }
@@ -130,9 +150,49 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
 
     private void update() {
 
+        // Náraz vetřelců do kraje obrazovky
+        boolean bumped=false;
+
+        boolean loss = false;
+
+        // Aktualizace hráče
         playerShip.update();
 
-        prepareLevel();
+        // Aktualizace vetřelců
+        for(int i = 0; i < numInvaders; i++){
+
+            if(!invaders[i].getDead()) {
+                // Aktualizace vetřelce
+                invaders[i].update();
+
+                // Střel
+                // TODO podmínit nějakou logikou
+                invadersBullets[i].shoot(invaders[i].getX() + invaders[i].getLength() / 2, invaders[i].getY(), playerBullet.DOWN);
+
+
+                // Naraz do zdi?
+                if (invaders[i].getX() > sizeX - invaders[i].getLength() || invaders[i].getX() < 0){
+                    bumped = true;
+                }
+            }
+
+        }
+
+        // Pokud vetřelci narazili, posunu je dolu a změním směr
+        if(bumped){
+
+            for(int i = 0; i < numInvaders; i++){
+                invaders[i].dropDownAndReverse();
+                // Pokud jsou už vetřelci dole, končím
+                if(invaders[i].getY() > sizeY - sizeY / 10){
+                    loss = true;
+                }
+            }
+        }
+
+        if (loss){
+            prepareLevel();
+        }
 
         // Update the players bullet
         if(playerBullet.getStatus()){

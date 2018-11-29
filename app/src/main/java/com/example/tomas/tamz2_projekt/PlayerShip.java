@@ -28,9 +28,13 @@ public class PlayerShip {
 
     private int shipMove = STOPPED;
 
+    private int screenX;
+
     public PlayerShip(Context context, int sizeX, int sizeY){
 
         shipHitbox = new RectF();
+
+        screenX=sizeX;
 
         length=sizeX/10;
         height=sizeY/10;
@@ -43,8 +47,6 @@ public class PlayerShip {
         ship = Bitmap.createScaledBitmap(ship, (int)length, (int)height, false);
 
         shipSpeed = 5;
-
-
     }
 
     public RectF getRect(){
@@ -69,10 +71,16 @@ public class PlayerShip {
 
     public void update(/*long fps*/){
         if(shipMove == LEFT){
+            if(x-shipSpeed<=0){
+                setMovementState(RIGHT);
+            }
             x = x - shipSpeed;// / fps;
         }
 
         if(shipMove == RIGHT){
+            if(x+length+shipSpeed>=screenX){
+                setMovementState(LEFT);
+            }
             x = x + shipSpeed; // fps;
         }
         shipHitbox.top =y;
@@ -81,6 +89,5 @@ public class PlayerShip {
         shipHitbox.right = x + length;
 
     }
-
-
+    
 }
