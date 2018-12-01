@@ -21,7 +21,7 @@ public class Invader {
     private float x;
     private float y;
 
-    private float shipSpeed;
+    private float shipSpeed=20;
 
     public final int LEFT=1;
     public final int RIGHT = 2;
@@ -43,7 +43,7 @@ public class Invader {
         int padding = sizeX/20;
 
         this.x = column * (length+padding);
-        this.y = row * (length + padding / 4);
+        this.y = row * (length + padding);
 
         bitmap1 = BitmapFactory.decodeResource(context.getResources(), R.drawable.alien1skin);
         bitmap2 = BitmapFactory.decodeResource(context.getResources(), R.drawable.alien2skin);
@@ -53,15 +53,13 @@ public class Invader {
         bitmap2 = Bitmap.createScaledBitmap(bitmap2, (int)length, (int)height, false);
         bitmap3 = Bitmap.createScaledBitmap(bitmap3, (int)length, (int)height, false);
 
-        shipSpeed=2;
-
     }
 
-    public void setDead(){
+    public void kill(){
         isDead = true;
     }
 
-    public boolean getDead(){
+    public boolean isDead(){
         return isDead;
     }
 
@@ -103,6 +101,8 @@ public class Invader {
         hitbox.bottom=y+height;
         hitbox.left=x;
         hitbox.right=x+length;
+
+
     }
 
     public void dropDownAndReverse(){
@@ -113,6 +113,28 @@ public class Invader {
         }
 
         y += height;
+    }
+
+    public boolean takeAim(float playerShipX, float playerShipLength){
+
+        int randomNumber;
+
+        if((playerShipX + playerShipLength > x &&
+                playerShipX + playerShipLength < x + length) || (playerShipX > x && playerShipX < x + length)) {
+
+            randomNumber = random.nextInt(100);
+            if(randomNumber == 0) {
+                return true;
+            }
+
+        }
+
+        randomNumber = random.nextInt(2000);
+        if(randomNumber == 0){
+            return true;
+        }
+
+        return false;
     }
 
 

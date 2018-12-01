@@ -49,7 +49,7 @@ public class PlayerShip {
         shipSpeed = 5;
     }
 
-    public RectF getRect(){
+    public RectF getHitbox(){
         return shipHitbox;
     }
 
@@ -89,5 +89,5 @@ public class PlayerShip {
         shipHitbox.right = x + length;
 
     }
-    
+
 }

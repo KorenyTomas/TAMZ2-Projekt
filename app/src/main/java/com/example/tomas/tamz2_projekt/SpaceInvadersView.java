@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
@@ -45,8 +46,10 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
     Invader[] invaders = new Invader[30];
     int numInvaders = 0;
 
-    // Strela vetrelcu (nepředpokladame vice než 100 najednou)
-    private Bullet[] invadersBullets = new Bullet[100];
+    // Strela vetrelcu
+    private Bullet[] invadersBullets = new Bullet[30];
+
+    private Shelter[] shelters = new Shelter[3];
 
     public SpaceInvadersView(Context context, int x, int y) {
         super(context);
@@ -64,7 +67,10 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
     }
 
     private void prepareLevel() {
-        // #TODO
+
+        lives=3;
+        score=0;
+
         playerShip = new PlayerShip(context, sizeX, sizeY);
 
         // Střela hráče
@@ -83,6 +89,11 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
                 numInvaders ++;
             }
         }
+
+        for (int i = 0; i < shelters.length; i++){
+            shelters[i] = new Shelter(context, i, sizeX, sizeY);
+        }
+
     }
 
     @Override
@@ -112,23 +123,27 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
                     paint
                     );
 
-            //paint.setColor(Color.argb(255,  255, 255, 255));
-
-            paint.setColor(Color.WHITE);
-
             // #todo vykreslení pro všechny rozlišení
             //Log.d("posY", ""+sizeY);
             canvas.drawBitmap(playerShip.getShip(), playerShip.getX(), sizeY - 182, paint);
 
             // Vykreslení vetřelců
             for(int i = 0; i < numInvaders; i++){
-                if(!invaders[i].getDead()) {
+                if(!invaders[i].isDead()) {
                     canvas.drawBitmap(invaders[i].getBitmap(i%3), invaders[i].getX(), invaders[i].getY(), paint);
                 }
             }
 
+            // Vykreslení štítu
+            for (int i = 0; i < shelters.length; i++){
+                canvas.drawBitmap(shelters[i].getShieldSkin(), sizeX/10 + (sizeX/3)*i, sizeY-180-(sizeY/12), paint);
+            }
+
+            paint.setColor(Color.WHITE);
+
             // Vykreslení hráčovi střely
             if(playerBullet.getStatus()){
+                Log.d("PlayerBulletDraw", "OK");
                 canvas.drawRect(playerBullet.getHitbox(), paint);
             }
 
@@ -161,13 +176,14 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
         // Aktualizace vetřelců
         for(int i = 0; i < numInvaders; i++){
 
-            if(!invaders[i].getDead()) {
+            if(!invaders[i].isDead()) {
                 // Aktualizace vetřelce
                 invaders[i].update();
 
                 // Střel
-                // TODO podmínit nějakou logikou
-                invadersBullets[i].shoot(invaders[i].getX() + invaders[i].getLength() / 2, invaders[i].getY(), playerBullet.DOWN);
+                if(invaders[i].takeAim(playerShip.getX(), playerShip.getLength())) {
+                    invadersBullets[i].shoot(invaders[i].getX() + invaders[i].getLength() / 2, invaders[i].getY(), playerBullet.DOWN);
+                }
 
 
                 // Naraz do zdi?
@@ -178,31 +194,130 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
 
         }
 
+        // Aktualizace střel vetřelců
+        for(int i = 0; i < invadersBullets.length; i++){
+            if(invadersBullets[i].getStatus()) {
+                invadersBullets[i].update();
+            }
+        }
+
         // Pokud vetřelci narazili, posunu je dolu a změním směr
         if(bumped){
 
             for(int i = 0; i < numInvaders; i++){
                 invaders[i].dropDownAndReverse();
-                // Pokud jsou už vetřelci dole, končím
-                if(invaders[i].getY() > sizeY - sizeY / 10){
+
+                if(!invaders[i].isDead() && (RectF.intersects(shelters[0].getHitbox(), invaders[i].getHitbox()) || RectF.intersects(shelters[2].getHitbox(), invaders[i].getHitbox()))){
+                    for(int j=0; j<shelters.length; j++){
+                        shelters[j].setDamage(100);
+                    }
+                }
+
+                // Pokud jsou už živí vetřelci dole, končím
+                if(!invaders[i].isDead() &&invaders[i].getY() > sizeY - sizeY / 8){
                     loss = true;
                 }
             }
         }
 
+
         if (loss){
+            paused=true;
             prepareLevel();
         }
 
-        // Update the players bullet
         if(playerBullet.getStatus()){
-            Log.d("ViewUpdate", "PlayerBulletActive");
             playerBullet.update();
         }
 
+        // Hračova střela za obrazovkou
+        if(playerBullet.getImpactPointY() < 0){
+            playerBullet.setStatus(false);
+        }
+
+        // Střela vetřelců úplně dole
         for(int i = 0; i < invadersBullets.length; i++){
+            if(invadersBullets[i].getImpactPointY() > sizeY){
+                invadersBullets[i].setStatus(false);
+            }
+        }
+
+        // Hráč zasáhl vetřelce
+        if(playerBullet.getStatus()) {
+            for (int i = 0; i < numInvaders; i++) {
+                if (!invaders[i].isDead()) {
+                    if (RectF.intersects(playerBullet.getHitbox(), invaders[i].getHitbox())) {
+                        invaders[i].kill();
+                        playerBullet.setStatus(false);
+                        score = score + 10;
+
+                        // Hráč vyhrál
+                        if(score == numInvaders * 10){
+                            paused = true;
+                            prepareLevel();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Vetřelci zasáhli štít
+        for(int i = 0; i < invadersBullets.length; i++) {
+            if (invadersBullets[i].getStatus()) {
+                for (int j = 0; j < shelters.length; j++) {
+                    if (shelters[j].getDamage() < 100) {
+                        if (RectF.intersects(invadersBullets[i].getHitbox(), shelters[j].getHitbox())) {
+                            Log.d("InvaderHitShelter", "" + shelters[j].getHitbox() + " ; " + invadersBullets[i].getHitbox());
+                            invadersBullets[i].setStatus(false);
+                            shelters[j].setDamage(10);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Hráč zasáhl štít
+        if(playerBullet.getStatus()){
+            for(int i = 0; i < shelters.length; i++){
+                if(shelters[i].getDamage()<100){
+                    if(RectF.intersects(playerBullet.getHitbox(), shelters[i].getHitbox())){
+                        Log.d("PlayerHitShelter", "" + shelters[i].getHitbox() + " ; " + playerBullet.getHitbox());
+                        playerBullet.setStatus(false);
+                        // TODO síla střel dle nastavení
+                        shelters[i].setDamage(10);
+                    }
+                }
+            }
+        }
+
+        // Vetřelci zasáhli hráče
+        for(int i = 0; i < invadersBullets.length; i++){
+            if(invadersBullets[i].getStatus()){
+                if(RectF.intersects(playerShip.getHitbox(), invadersBullets[i].getHitbox())){
+                    invadersBullets[i].setStatus(false);
+                    lives --;
+
+                    // Is it game over?
+                    if(lives == 0){
+                        paused = true;
+                        prepareLevel();
+                    }
+                }
+            }
+        }
+
+        // Vypis hitboxu všech objektů - debug
+        Log.d("PlayerHitbox", "" + playerShip.getHitbox());
+        Log.d("PlayerBulletHitbox", "" + playerBullet.getHitbox());
+        for(int i = 0; i < shelters.length; i++) {
+            Log.d("ShelterHitbox", i+ ". " + shelters[i].getHitbox());
+        }
+        for(int i = 0; i < invaders.length; i++) {
+            Log.d("InvadersHitbox", i+ ". " + invaders[i].getHitbox());
+        }
+        for(int i = 0; i < invadersBullets.length; i++) {
             if(invadersBullets[i].getStatus()) {
-                invadersBullets[i].update();
+                Log.d("InvadersBulletHitbox", i + ". " + invadersBullets[i].getHitbox());
             }
         }
 
@@ -244,13 +359,13 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
                 if(motionEvent.getY() < sizeY - sizeY / 4){
                     Log.d("onTouchEv", "ActionDownSecond");
                     // Střela
-                    playerBullet.shoot(playerShip.getX()+playerShip.getLength()/2, sizeY, playerBullet.UP);
+                    playerBullet.shoot(playerShip.getX()+playerShip.getLength()/2, sizeY-180, playerBullet.UP);
                 }
 
                 break;
             case MotionEvent.ACTION_UP:
                 Log.d("onTouchEv", "ActionUp");
-                if(motionEvent.getY() > sizeY - sizeY / 10) {
+                if(motionEvent.getY() > sizeY - sizeY / 4) {
                     playerShip.setMovementState(playerShip.STOPPED);
                 }
                 break;

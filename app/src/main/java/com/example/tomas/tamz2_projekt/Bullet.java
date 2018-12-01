@@ -15,13 +15,13 @@ public class Bullet {
     int heading = -1;
     float speed = 10;
 
-    private int width;
+    private int width=1;
     private int height;
 
     private boolean isActive;
 
     public Bullet(int sizeY){
-        height = sizeY / 20;
+        height = sizeY / 25;
         isActive = false;
 
         hitbox = new RectF();
@@ -44,6 +44,20 @@ public class Bullet {
 
         }
     }
+
+    public void setStatus(boolean status){
+        isActive = status;
+    }
+
+    public float getImpactPointY(){
+        if (heading == DOWN){
+            return y + height;
+        }else{
+            return  y;
+        }
+
+    }
+
 
     public void update(/*long fps*/){
 
