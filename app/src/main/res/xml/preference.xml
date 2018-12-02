@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <CheckBoxPreference
+        android:key="fullscreen"
+        android:title="Fullscreen"
+        android:summary="Hra přes celou obrazovku"
+        android:defaultValue="false"/>
+
+    <CheckBoxPreference
+        android:key="gyroscope"
+        android:title="Gyroscope"
+        android:summary="Ovládání pomocí telefonu"
+        android:defaultValue="false"/>
+
+    <EditTextPreference
+        android:key="rychlost"
+        android:title="Rychlost vetřelců"
+        android:summary="Max hodnota 20"
+        android:inputType="number"
+        android:defaultValue="5" />
+
+    <EditTextPreference
+        android:key="sila"
+        android:title="Síla střel vetřelců"
+        android:summary="Síla na zníčení štítu. \nMax hodnota 100"
+        android:inputType="number"
+        android:defaultValue="10" />
+
+    <EditTextPreference
+        android:key="radek"
+        android:title="Počet řad vetřelců"
+        android:summary="Max hodnota 6"
+        android:inputType="number"
+        android:defaultValue="6" />
+
+    <EditTextPreference
+        android:key="sloupec"
+        android:title="Počet sloupců vetřelců"
+        android:summary="Max hodnota 6"
+        android:inputType="number"
+        android:defaultValue="6" />
+
+</PreferenceScreen>

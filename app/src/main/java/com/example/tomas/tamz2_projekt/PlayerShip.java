@@ -30,7 +30,7 @@ public class PlayerShip {
 
     private int screenX;
 
-    public PlayerShip(Context context, int sizeX, int sizeY){
+    public PlayerShip(Context context, int sizeX, int sizeY, int posY){
 
         shipHitbox = new RectF();
 
@@ -41,7 +41,7 @@ public class PlayerShip {
 
         // Začátek lodě v centru obrazovky
         x=sizeX/2;
-        y=20;
+        y=posY;
 
         ship = BitmapFactory.decodeResource(context.getResources(), R.drawable.shipskin);
         ship = Bitmap.createScaledBitmap(ship, (int)length, (int)height, false);
@@ -59,6 +59,10 @@ public class PlayerShip {
 
     public float getX(){
         return x;
+    }
+
+    public float getY(){
+        return y;
     }
 
     public float getLength(){

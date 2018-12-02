@@ -1,9 +1,11 @@
 package com.example.tomas.tamz2_projekt;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.RectF;
+import android.preference.PreferenceManager;
 
 import java.util.Random;
 
@@ -52,6 +54,10 @@ public class Invader {
         bitmap1 = Bitmap.createScaledBitmap(bitmap1, (int)length, (int)height, false);
         bitmap2 = Bitmap.createScaledBitmap(bitmap2, (int)length, (int)height, false);
         bitmap3 = Bitmap.createScaledBitmap(bitmap3, (int)length, (int)height, false);
+
+        // Načtení sharedPreferences
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        shipSpeed=Integer.parseInt(prefs.getString("rychlost", "10"));
 
     }
 

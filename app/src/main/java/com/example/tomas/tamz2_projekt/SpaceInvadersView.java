@@ -1,17 +1,27 @@
 package com.example.tomas.tamz2_projekt;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.media.AudioManager;
+import android.media.SoundPool;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-public class SpaceInvadersView extends SurfaceView implements Runnable{
+import static android.content.Context.SENSOR_SERVICE;
+
+public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEventListener {
 
     Context context;
 
@@ -42,25 +52,61 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
     // Strela hrace, může byt jen jedna
     private Bullet playerBullet;
 
-    // #TODO podpora podle nastavení
-    Invader[] invaders = new Invader[30];
+    // Vetřelci
+    Invader[] invaders = new Invader[36];
     int numInvaders = 0;
 
     // Strela vetrelcu
-    private Bullet[] invadersBullets = new Bullet[30];
+    private Bullet[] invadersBullets = new Bullet[36];
 
     private Shelter[] shelters = new Shelter[3];
+
+    SoundPool soundPool;
+
+    int soundExplosion;
+    int soundInvaderKilled;
+    int soundShoot;
+
+    SharedPreferences prefs;
+    boolean gyroscope=false;
+
+    int radek;
+    int sloupec;
+    int damage;
+
+    private final SensorManager mSensorManager;
+    private final Sensor mAccelerometer;
+
+    private long lastUpdate;
 
     public SpaceInvadersView(Context context, int x, int y) {
         super(context);
 
         this.context = context;
 
+        // Načtení sharedPreferences
+        prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        gyroscope = prefs.getBoolean("gyroscope", false);
+
+        radek=Integer.parseInt(prefs.getString("radek", "0"));
+        sloupec=Integer.parseInt(prefs.getString("sloupec", "0"));
+        damage=Integer.parseInt(prefs.getString("sila", "10"));
+
+        mSensorManager = (SensorManager)context.getSystemService(SENSOR_SERVICE);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+
+        lastUpdate = System.currentTimeMillis();
+
         surfaceHolder = getHolder();
         paint = new Paint();
 
         sizeX = x;
         sizeY = y;
+
+        soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
+        soundExplosion = soundPool.load(context, R.raw.explosion, 1);
+        soundInvaderKilled = soundPool.load(context, R.raw.invaderkilled, 1);
+        soundShoot = soundPool.load(context, R.raw.shoot, 1);
 
         prepareLevel();
 
@@ -71,7 +117,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
         lives=3;
         score=0;
 
-        playerShip = new PlayerShip(context, sizeX, sizeY);
+        playerShip = new PlayerShip(context, sizeX, sizeY, sizeY-182);
 
         // Střela hráče
         playerBullet = new Bullet(sizeY);
@@ -83,8 +129,8 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
 
         // Vetrelci
         numInvaders = 0;
-        for(int column = 0; column < 6; column ++ ){
-            for(int row = 0; row < 5; row ++ ){
+        for(int column = 0; column < sloupec; column ++ ){
+            for(int row = 0; row < radek; row ++ ){
                 invaders[numInvaders] = new Invader(context, row, column, sizeX, sizeY);
                 numInvaders ++;
             }
@@ -125,7 +171,8 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
 
             // #todo vykreslení pro všechny rozlišení
             //Log.d("posY", ""+sizeY);
-            canvas.drawBitmap(playerShip.getShip(), playerShip.getX(), sizeY - 182, paint);
+            canvas.drawBitmap(playerShip.getShip(), playerShip.getX(), playerShip.getY(), paint);
+            //Log.d("PlayerShip", "Draw: " + playerShip.getX() + ", " + (sizeY-182) + " Hitbox: " + playerShip.getHitbox());
 
             // Vykreslení vetřelců
             for(int i = 0; i < numInvaders; i++){
@@ -143,7 +190,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
 
             // Vykreslení hráčovi střely
             if(playerBullet.getStatus()){
-                Log.d("PlayerBulletDraw", "OK");
+                //Log.d("PlayerBulletDraw", "OK");
                 canvas.drawRect(playerBullet.getHitbox(), paint);
             }
 
@@ -157,9 +204,16 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             // Změna barvy štětce pro vypsaní skore
             paint.setColor(Color.WHITE);
             paint.setTextSize(20);
-            canvas.drawText("Score: " + score + " Lives: " + lives, 10, 50, paint);
+            canvas.drawText("Score: " + score + " Lives: " + lives, 5, 20, paint);
+
+            if (paused){
+                paint.setColor(Color.RED);
+                paint.setTextSize(30);
+                canvas.drawText("PAUSED!", sizeX/2-50, sizeY/2, paint);
+            }
 
             surfaceHolder.unlockCanvasAndPost(canvas);
+
         }
     }
 
@@ -248,6 +302,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
                 if (!invaders[i].isDead()) {
                     if (RectF.intersects(playerBullet.getHitbox(), invaders[i].getHitbox())) {
                         invaders[i].kill();
+                        soundPool.play(soundInvaderKilled, 1, 1, 0, 0, 1);
                         playerBullet.setStatus(false);
                         score = score + 10;
 
@@ -267,9 +322,9 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
                 for (int j = 0; j < shelters.length; j++) {
                     if (shelters[j].getDamage() < 100) {
                         if (RectF.intersects(invadersBullets[i].getHitbox(), shelters[j].getHitbox())) {
-                            Log.d("InvaderHitShelter", "" + shelters[j].getHitbox() + " ; " + invadersBullets[i].getHitbox());
+                            //Log.d("InvaderHitShelter", "" + shelters[j].getHitbox() + " ; " + invadersBullets[i].getHitbox());
                             invadersBullets[i].setStatus(false);
-                            shelters[j].setDamage(10);
+                            shelters[j].setDamage(damage);
                         }
                     }
                 }
@@ -281,10 +336,9 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             for(int i = 0; i < shelters.length; i++){
                 if(shelters[i].getDamage()<100){
                     if(RectF.intersects(playerBullet.getHitbox(), shelters[i].getHitbox())){
-                        Log.d("PlayerHitShelter", "" + shelters[i].getHitbox() + " ; " + playerBullet.getHitbox());
+                        //Log.d("PlayerHitShelter", "" + shelters[i].getHitbox() + " ; " + playerBullet.getHitbox());
                         playerBullet.setStatus(false);
-                        // TODO síla střel dle nastavení
-                        shelters[i].setDamage(10);
+                        shelters[i].setDamage(damage);
                     }
                 }
             }
@@ -295,6 +349,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             if(invadersBullets[i].getStatus()){
                 if(RectF.intersects(playerShip.getHitbox(), invadersBullets[i].getHitbox())){
                     invadersBullets[i].setStatus(false);
+                    soundPool.play(soundExplosion, 1, 1, 0, 0, 1);
                     lives --;
 
                     // Is it game over?
@@ -306,20 +361,20 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             }
         }
 
-        // Vypis hitboxu všech objektů - debug
-        Log.d("PlayerHitbox", "" + playerShip.getHitbox());
-        Log.d("PlayerBulletHitbox", "" + playerBullet.getHitbox());
-        for(int i = 0; i < shelters.length; i++) {
-            Log.d("ShelterHitbox", i+ ". " + shelters[i].getHitbox());
-        }
-        for(int i = 0; i < invaders.length; i++) {
-            Log.d("InvadersHitbox", i+ ". " + invaders[i].getHitbox());
-        }
-        for(int i = 0; i < invadersBullets.length; i++) {
-            if(invadersBullets[i].getStatus()) {
-                Log.d("InvadersBulletHitbox", i + ". " + invadersBullets[i].getHitbox());
-            }
-        }
+//        // Vypis hitboxu všech objektů - debug
+//        Log.d("PlayerHitbox", "" + playerShip.getHitbox());
+//        Log.d("PlayerBulletHitbox", "" + playerBullet.getHitbox());
+//        for(int i = 0; i < shelters.length; i++) {
+//            Log.d("ShelterHitbox", i+ ". " + shelters[i].getHitbox());
+//        }
+//        for(int i = 0; i < invaders.length; i++) {
+//            Log.d("InvadersHitbox", i+ ". " + invaders[i].getHitbox());
+//        }
+//        for(int i = 0; i < invadersBullets.length; i++) {
+//            if(invadersBullets[i].getStatus()) {
+//                Log.d("InvadersBulletHitbox", i + ". " + invadersBullets[i].getHitbox());
+//            }
+//        }
 
     }
 
@@ -330,12 +385,16 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
         }catch (InterruptedException e){
             Log.e("Error", "připojení vlakna");
         }
+        mSensorManager.unregisterListener(this);
+
     }
 
     public void resume(){
         playing = true;
         threadGame = new Thread(this);
         threadGame.start();
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+
 
     }
 
@@ -345,32 +404,68 @@ public class SpaceInvadersView extends SurfaceView implements Runnable{
             case MotionEvent.ACTION_DOWN:
                 Log.d("onTouchEv", "ActionDown");
                 paused = false;
-
-                if(motionEvent.getY() > sizeY - sizeY / 4){
-                    //
-                    Log.d("onTouchEv", "ActionDownFirst");
-                    if(motionEvent.getX() > sizeX / 2){
-                        playerShip.setMovementState(playerShip.RIGHT);
-                    }else{
-                        playerShip.setMovementState(playerShip.LEFT);
+                if(!gyroscope){
+                    if(motionEvent.getY() > sizeY - sizeY / 4){
+                        //
+                        Log.d("onTouchEv", "ActionDownFirst");
+                        if(motionEvent.getX() > sizeX / 2){
+                            playerShip.setMovementState(playerShip.RIGHT);
+                        }else{
+                            playerShip.setMovementState(playerShip.LEFT);
+                        }
                     }
                 }
 
                 if(motionEvent.getY() < sizeY - sizeY / 4){
                     Log.d("onTouchEv", "ActionDownSecond");
                     // Střela
-                    playerBullet.shoot(playerShip.getX()+playerShip.getLength()/2, sizeY-180, playerBullet.UP);
+                    if(!playerBullet.getStatus()) {
+                        playerBullet.shoot(playerShip.getX() + playerShip.getLength() / 2, sizeY - 180, playerBullet.UP);
+                        soundPool.play(soundShoot, 1, 1, 0, 0, 1);
+                    }
                 }
 
                 break;
             case MotionEvent.ACTION_UP:
                 Log.d("onTouchEv", "ActionUp");
-                if(motionEvent.getY() > sizeY - sizeY / 4) {
-                    playerShip.setMovementState(playerShip.STOPPED);
+                if(!gyroscope) {
+                    if (motionEvent.getY() > sizeY - sizeY / 4) {
+                        playerShip.setMovementState(playerShip.STOPPED);
+                    }
                 }
                 break;
         }
         return true;
     }
 
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if(gyroscope){
+
+            long actualTime = event.timestamp;
+            if (actualTime - lastUpdate < 2000) {
+                return;
+            }
+
+            //Log.d("Xacceleration", event.values[0] + "");
+            if(event.values[0] <= -0.2){
+                playerShip.setMovementState(playerShip.RIGHT);
+            }else if (event.values[0] >= 0.2){
+                playerShip.setMovementState(playerShip.LEFT);
+            }else{
+                playerShip.setMovementState(playerShip.STOPPED);
+            }
+//            lastX=event.values[0];
+//            last_linear_acceleration[0]=linear_acceleration[0];
+            lastUpdate = actualTime;
+        }
+//        Log.d("SensorGyroscope", "Orientation X (Roll) :"+ Float.toString(event.values[2]) +"\n"+
+//        "Orientation Y (Pitch) :"+ Float.toString(event.values[1]) +"\n"+
+//                "Orientation Z (Yaw) :"+ Float.toString(event.values[0]));
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
 }
