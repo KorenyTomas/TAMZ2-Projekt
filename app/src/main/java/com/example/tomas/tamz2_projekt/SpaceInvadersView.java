@@ -1,7 +1,11 @@
 package com.example.tomas.tamz2_projekt;
 
+import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -14,10 +18,12 @@ import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.preference.PreferenceManager;
+import android.text.InputType;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.EditText;
 
 import static android.content.Context.SENSOR_SERVICE;
 
@@ -78,6 +84,10 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
     private final Sensor mAccelerometer;
 
     private long lastUpdate;
+
+    private String name="";
+
+    long startmilis;
 
     public SpaceInvadersView(Context context, int x, int y) {
         super(context);
@@ -309,6 +319,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
                         // Hráč vyhrál
                         if(score == numInvaders * 10){
                             paused = true;
+                            playerWin();
                             prepareLevel();
                         }
                     }
@@ -402,8 +413,12 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
     public boolean onTouchEvent(MotionEvent motionEvent){
         switch (motionEvent.getAction() & MotionEvent.ACTION_MASK){
             case MotionEvent.ACTION_DOWN:
-                Log.d("onTouchEv", "ActionDown");
-                paused = false;
+//                Log.d("onTouchEv", "ActionDown");
+                if(paused){
+                    startmilis = System.currentTimeMillis();
+                    paused = false;
+                    return true;
+                }
                 if(!gyroscope){
                     if(motionEvent.getY() > sizeY - sizeY / 4){
                         //
@@ -467,5 +482,49 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    public void playerWin(){
+
+        long endMilis = System.currentTimeMillis();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle("Výhra");
+
+        // InputText
+        final EditText input = new EditText(context);
+        // Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        builder.setView(input);
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                name = input.getText().toString();
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
+
+        ScoreReaderDbHelper mDbHelper = new ScoreReaderDbHelper(context);
+
+        // Gets the data repository in write mode
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+
+        // Create a new map of values, where column names are the keys
+        ContentValues values = new ContentValues();
+        values.put(ScoreEntry.COLUMN_NAME_NAME, name);
+        values.put(ScoreEntry.COLUMN_NAME_TIME, (long) ((endMilis-startmilis) / 1000));
+        values.put(ScoreEntry.COLUMN_NAME_SCORE, score);
+
+        // Insert the new row, returning the primary key value of the new row
+        long neWid= db.insert(ScoreEntry.TABLE_NAME, null, values);
     }
 }

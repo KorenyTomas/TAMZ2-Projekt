@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
                     startActivity(new Intent(MainActivity.this, GameActivity.class));
                 }else if(position==1){
                     // HighScore
-
+                    startActivity(new Intent(MainActivity.this, HighscoreActivity.class));
                 }else if(position==2){
                     // Nastavení
                     startActivity(new Intent(getBaseContext(), SettingsActivity.class));
