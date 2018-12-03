@@ -1,5 +1,6 @@
 package com.example.tomas.tamz2_projekt;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Context;
@@ -17,13 +18,18 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.text.InputType;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.widget.EditText;
+
 
 import static android.content.Context.SENSOR_SERVICE;
 
@@ -88,11 +94,23 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
     private String name="";
 
     long startmilis;
+    long endMilis;
+
+    ScoreReaderDbHelper mDbHelper;
+
+    boolean dialogOk;
+
+//    final float scale =
+
+    //private OnLayoutChangedListener layoutChangedListener;
+
 
     public SpaceInvadersView(Context context, int x, int y) {
         super(context);
 
         this.context = context;
+
+        mDbHelper = new ScoreReaderDbHelper(context);
 
         // Načtení sharedPreferences
         prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -122,12 +140,13 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
 
     }
 
+
     private void prepareLevel() {
 
         lives=3;
         score=0;
 
-        playerShip = new PlayerShip(context, sizeX, sizeY, sizeY-182);
+        playerShip = new PlayerShip(context, sizeX, sizeY, sizeY-(sizeY/10));
 
         // Střela hráče
         playerBullet = new Bullet(sizeY);
@@ -178,8 +197,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
                     0,
                     paint
                     );
-
-            // #todo vykreslení pro všechny rozlišení
+            
             //Log.d("posY", ""+sizeY);
             canvas.drawBitmap(playerShip.getShip(), playerShip.getX(), playerShip.getY(), paint);
             //Log.d("PlayerShip", "Draw: " + playerShip.getX() + ", " + (sizeY-182) + " Hitbox: " + playerShip.getHitbox());
@@ -193,7 +211,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
 
             // Vykreslení štítu
             for (int i = 0; i < shelters.length; i++){
-                canvas.drawBitmap(shelters[i].getShieldSkin(), sizeX/10 + (sizeX/3)*i, sizeY-180-(sizeY/12), paint);
+                canvas.drawBitmap(shelters[i].getShieldSkin(), sizeX/10 + (sizeX/3)*i, sizeY-100-(sizeY/12), paint);
             }
 
             paint.setColor(Color.WHITE);
@@ -435,7 +453,7 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
                     Log.d("onTouchEv", "ActionDownSecond");
                     // Střela
                     if(!playerBullet.getStatus()) {
-                        playerBullet.shoot(playerShip.getX() + playerShip.getLength() / 2, sizeY - 180, playerBullet.UP);
+                        playerBullet.shoot(playerShip.getX() + playerShip.getLength() / 2, playerShip.getY(), playerBullet.UP);
                         soundPool.play(soundShoot, 1, 1, 0, 0, 1);
                     }
                 }
@@ -486,45 +504,64 @@ public class SpaceInvadersView extends SurfaceView implements Runnable, SensorEv
 
     public void playerWin(){
 
-        long endMilis = System.currentTimeMillis();
+        endMilis = System.currentTimeMillis();
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        Looper.prepare();
+        if(getDialogValueBack()){
+            // Gets the data repository in write mode
+            SQLiteDatabase db = mDbHelper.getWritableDatabase();
+
+
+            // Create a new map of values, where column names are the keys
+            ContentValues values = new ContentValues();
+            values.put(ScoreEntry.COLUMN_NAME_NAME, name);
+            values.put(ScoreEntry.COLUMN_NAME_TIME, (long) ((endMilis-startmilis) / 1000));
+            values.put(ScoreEntry.COLUMN_NAME_SCORE, score);
+
+            // Insert the new row, returning the primary key value of the new row
+            long neWid= db.insert(ScoreEntry.TABLE_NAME, null, values);
+        }
+    }
+
+    public boolean getDialogValueBack()
+    {
+
+
+        final Handler handler = new Handler() {
+            @Override
+            public void handleMessage(Message mesg) {
+                throw new RuntimeException();
+            }
+        };
+
+        final AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("Výhra");
 
         // InputText
         final EditText input = new EditText(context);
         // Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
         builder.setView(input);
-
-        // Set up the buttons
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
+        builder.setPositiveButton("Uložit", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                dialogOk = true;
                 name = input.getText().toString();
+                handler.sendMessage(handler.obtainMessage());
             }
         });
         builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.cancel();
+            public void onClick(DialogInterface dialog, int id) {
+                dialogOk = false;
+                handler.sendMessage(handler.obtainMessage());
             }
         });
-
         builder.show();
 
-        ScoreReaderDbHelper mDbHelper = new ScoreReaderDbHelper(context);
+        try {
+            Looper.loop();
+        } catch (RuntimeException e) {
+        }
 
-        // Gets the data repository in write mode
-        SQLiteDatabase db = mDbHelper.getWritableDatabase();
-
-        // Create a new map of values, where column names are the keys
-        ContentValues values = new ContentValues();
-        values.put(ScoreEntry.COLUMN_NAME_NAME, name);
-        values.put(ScoreEntry.COLUMN_NAME_TIME, (long) ((endMilis-startmilis) / 1000));
-        values.put(ScoreEntry.COLUMN_NAME_SCORE, score);
-
-        // Insert the new row, returning the primary key value of the new row
-        long neWid= db.insert(ScoreEntry.TABLE_NAME, null, values);
+        return dialogOk;
     }
 }

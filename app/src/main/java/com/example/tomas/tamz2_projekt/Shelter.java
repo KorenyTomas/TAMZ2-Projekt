@@ -42,7 +42,7 @@ public class Shelter {
         shieldSkinEmpty = Bitmap.createScaledBitmap(shieldSkinEmpty, width, height, false);
 
 
-        this.hitbox = new RectF(sizeX/10 + (sizeX/3)*column, sizeY-180-height , (sizeX/10 + (sizeX/3)*column)+width, sizeY-180);
+        this.hitbox = new RectF(sizeX/10 + (sizeX/3)*column, sizeY-100-height , (sizeX/10 + (sizeX/3)*column)+width, sizeY-100);
 
     }
 

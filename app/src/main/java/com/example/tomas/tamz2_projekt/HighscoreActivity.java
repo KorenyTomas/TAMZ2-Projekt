@@ -19,6 +19,10 @@ public class HighscoreActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_highscore);
 
+        int paddingRight=2;
+        int paddingLeft=10;
+        int paddingTop=2;
+        int paddingBottom=2;
 
         TableLayout tl=(TableLayout)findViewById(R.id.table);
 
@@ -68,22 +72,27 @@ public class HighscoreActivity extends Activity {
             ScoreRow row = scoreRows.get(i);
 
             TableRow tr1 = new TableRow(this);
+            tr1.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             tr1.setLayoutParams(new TableRow.LayoutParams( TableRow.LayoutParams.FILL_PARENT,TableRow.LayoutParams.WRAP_CONTENT));
 
             TextView poradi = new TextView(this);
+            poradi.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             poradi.setText((i+1) + ".");
             tr1.addView(poradi);
 
             TextView name = new TextView(this);
+            name.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             name.setText(row.name);
             tr1.addView(name);
 
             TextView score = new TextView(this);
             score.setText(row.score + "");
+            score.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             tr1.addView(score);
 
             TextView time = new TextView(this);
             time.setText("" + row.time);
+            time.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
             tr1.addView(time);
 
             tl.addView(tr1, new TableLayout.LayoutParams(TableRow.LayoutParams.FILL_PARENT, TableRow.LayoutParams.WRAP_CONTENT));
